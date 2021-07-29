@@ -1,24 +1,19 @@
-import logo from './logo.svg';
 import './App.css';
+import {Switch, Route} from 'react-router-dom'
+import Lobby from './pages/Lobby'
+import Game from './pages/Game'
 
 function App() {
+  const dbUrl = 'http://localhost:4500';
+  const defaultGameId = '6102ceabe6ce0d0c6c6f2cb4';
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      <Switch>
+        <Route exact path="/"><Lobby/></Route>
+        <Route path="/game"><Game dbUrl={dbUrl} gameId={defaultGameId}/></Route>
+      </Switch>
+    </>
   );
 }
 

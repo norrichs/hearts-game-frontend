@@ -1,38 +1,88 @@
-.App {
-  text-align: center;
+* {
+	box-sizing: border-box;
+  /* border: 1px solid magenta; */
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* GLOBAL PROPERTIES */
+:root {
+	/* dimensions */
+	--card-ratio: 0.7;
+	--card-height: 150px;
+	--card-border-radius: 6px;
+	/* colors */
+	--cardfront-background: rgb(231, 231, 230);
+	--cardback-background: green;
+	--redsuit-color: red;
+	--blacksuit-color: black;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.card-container {
+	border-radius: var(--card-border-radius);
+	height: var(--card-height);
+	width: calc(var(--card-height) * var(--card-ratio));
+  box-shadow: 4px 4px 6px 0 black;
+}
+.card-container.selected{
+  transform: translateY(calc( var(--card-height) / (-4)));
+  transition: 250ms;
+}
+.card-container.unselected{
+  transform: translateY(0);
+  transition: 250ms;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.card-front {
+	background-color: var(--cardfront-background);
+}
+.card-back {
+	background-color: var(--cardback-background);
+}
+
+.hand-display {
+	display: flex;
+	flex-direction: row;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  align-items: center;
+	flex-shrink: none;
+	flex-grow: none;
+	gap: 5px;
 }
 
-.App-link {
-  color: #61dafb;
+.suit-d,.suit-h h2{
+	color: var(--redsuit-color);
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.suit-s,.suit-c h2{
+	color: var(--blacksuit-color);
 }
+
+.game-main{
+  height: 100vh;
+  display: grid;
+  grid-template-rows:    calc(var(--card-height) * 2) auto calc(var(--card-height) * 2);
+  grid-template-columns: calc(var(--card-height) * 2) auto calc(var(--card-height) * 2) calc(100vw - 100vh);
+  grid-template-areas:
+    " info2 hand2 info3 side "
+    " hand1 play  hand3 side "
+    " info1 hand0 info0 side ";
+}
+.info-area{
+  background-color: aquamarine;
+  overflow-x: hidden;
+}
+.hand-area.north{ grid-area: hand2;}
+.hand-area.east { grid-area: hand3;}
+.hand-area.south{ grid-area: hand0;}
+.hand-area.west { grid-area: hand1;}
+.info-area.north{ grid-area: info2;}
+.info-area.east { grid-area: info3;}
+.info-area.south{ grid-area: info0;}
+.info-area.west { grid-area: info1;}
+.play-area      { grid-area: play;}
+.game-sidebar   { grid-area: side;}
+
+.north .hand-display{ transform: rotateZ(180deg);}
+.east  .hand-display{ transform: rotateZ(-90deg);}
+.west  .hand-display{ transform: rotateZ( 90deg);}
+
+
