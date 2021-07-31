@@ -16,14 +16,31 @@
 	--blacksuit-color: black;
 }
 
+#sandbox{
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
 .card-container {
 	border-radius: var(--card-border-radius);
 	height: var(--card-height);
 	width: calc(var(--card-height) * var(--card-ratio));
   box-shadow: 4px 4px 6px 0 black;
+  margin-left: calc(var(--card-height) * var(--card-ratio) * (-0.75));
+  display: grid;
+  grid-template-rows: 1fr 5fr 1fr;
+}
+.card-container .value{
+  padding: 5px;
+}
+.card-container .value:last-of-type{
+  transform: rotateZ(180deg);
 }
 .card-container.selected{
-  transform: translateY(calc( var(--card-height) / (-4)));
+  transform: translateY(calc( var(--card-height) * (-0.75)));
   transition: 250ms;
 }
 .card-container.unselected{
@@ -34,6 +51,61 @@
 .card-front {
 	background-color: var(--cardfront-background);
 }
+.symbol-wrapper{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.symbol-display.numeric{
+  /* grid-template: 
+    " .  b1 b1 .  .  " 1fr
+    " .  b1 b1 s5 s7 " 1fr
+    " s4 s2 .  s1 s3 " 1fr
+    " s8 s6 b2 b2 .  " 1fr
+    " .  .  b2 b2 .  " 1fr / 1fr 1fr 1fr 1fr 1fr; */
+    display: grid;
+    grid-template-rows:  1em 1em .75em 1em 1em;
+    grid-template-columns: 1em 1em 1em 1em 1em;
+    grid-template-areas: 
+    " .  b1 b1 .  .  " 
+    " .  b1 b1 s5 s7 " 
+    " s4 s2 .  s1 s3 " 
+    " s8 s6 b2 b2 .  " 
+    " .  .  b2 b2 .  ";
+    
+}
+
+.symbol{
+  width: 100%;
+  height: 100%;
+  display:flex;
+  align-items: center;
+  justify-content: center;
+}
+.sym-b1, .sym-b2 {
+  font-size: 2em;
+}
+.sym-s1, .sym-s2, .sym-s3, .sym-s4, .sym-s5, .sym-s6, .sym-s7, .sym-s8{
+  font-size: 1em;
+}
+.sym-b2, .sym-s2, .sym-s4, .sym-s6, .sym-s8{
+  transform: rotateZ(180deg);
+}
+
+.sym-b1{grid-area:b1}
+.sym-b2{grid-area:b2}
+.sym-s1{grid-area:s1}
+.sym-s2{grid-area:s2}
+.sym-s3{grid-area:s3}
+.sym-s4{grid-area:s4}
+.sym-s5{grid-area:s5}
+.sym-s6{grid-area:s6}
+.sym-s7{grid-area:s7}
+.sym-s8{grid-area:s8}
+
+
+
+
 .card-back {
 	background-color: var(--cardback-background);
 }
@@ -48,11 +120,11 @@
 	gap: 5px;
 }
 
-.suit-d,.suit-h h2{
+.suit-d,.suit-h{
 	color: var(--redsuit-color);
 }
 
-.suit-s,.suit-c h2{
+.suit-s,.suit-c{
 	color: var(--blacksuit-color);
 }
 

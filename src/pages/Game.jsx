@@ -7,39 +7,28 @@ const Game = ({ dbUrl}, props) => {
 	const [gameId, setGameId] = useState(null)
 	const [globalGameState, setGlobalGameState] = useState({});
 	const [hand0, setHand0] = useState([]);
+	// TODO eliminate frontend HAND data for all but 0
 	const [hand1, setHand1] = useState([]);
 	const [hand2, setHand2] = useState([]);
 	const [hand3, setHand3] = useState([]);
+
+	const [passCardsCount, setPassCardsCount] = useState(0);
+	const [passCards, setPassCards] = useState([])
 
 	const [playerState0, setPlayerState0] = useState([]);
 	const [playerState1, setPlayerState1] = useState([]);
 	const [playerState2, setPlayerState2] = useState([]);
 	const [playerState3, setPlayerState3] = useState([]);
 
+	const [gamePhase, setGamePhase] = useState('deal')
+
 	// Event Handler Functions
-	const handleDoubleClickCard = () => {
-		alert('chose cards')
-		// 	if it is primary player's turn
-		//		choose card and post gamestate
-		//		update card played State and trigger animation?
-		//	else if	it is card passing time && three cards are selected
-		//		choose cards and post gamestate
-		//		trigger animation
-	}
 
-	const handDisplay0 = hand0.map((card, i) => {
-		return <CardFront key={i} cardValue={card} handleDoubleClickCard={handleDoubleClickCard}/>;
-	});
-	const handDisplay1 = hand1.map((card, i) => {
-		return <CardBack key={i} />;
-	});
-	const handDisplay2 = hand2.map((card, i) => {
-		return <CardBack key={i} />;
-	});
-	const handDisplay3 = hand3.map((card, i) => {
-		return <CardBack key={i} />;
-	});
 
+	//////////////////////////////////////////////////////////
+	//	Spread Game State
+	// 		Unpacks game state data into local state varibles
+	//////////////////////////////////////////////////////////
 	const spreadGameState = (gameStateData) => {
 		const { players, ...rest } = gameStateData;
 		setGlobalGameState(rest);
@@ -52,52 +41,216 @@ const Game = ({ dbUrl}, props) => {
 		setPlayerState2({ ...players[2] });
 		setPlayerState3({ ...players[3] });
 	}
-
-	const getGameState = async () => {
-		console.log("fetching gameState");
-		fetch(`${dbUrl}/gameState/getState/${gameId}`)
-			.then((res) => res.json())
-			.then((data) => {
-				console.log("gameStateData", data);
-				spreadGameState(data.data)
-			});
+	
+	const getGameState = async (id) => {
+		console.log("fetching gameState", id);
+		const resp = await fetch(`${dbUrl}/gameState/getState/${id}`)
+		const data = await resp.json()
+		console.log("fetched gameStateData", data);
+		spreadGameState(data.data)
+		return data.data
 	};
-	const startNewGame = async () => {
-		console.log("starting new Game")
-		fetch(`${dbUrl}/gameState/seed`)
-			.then((res) => res.json())
-			.then((data)=> {
-				console.log("newGameData", data);
-				const id = data.data._id;
-				console.log('new game id', id)
-				// spreadGameState(data.data)
-				return id
-			})
-			.then((id) => {
-				fetch(`${dbUrl}/gameState/deal/${id}`)
-					.then(res => res.json())
-					.then(data => {
-						console.log("new deal data", data)
-						spreadGameState(data.data)
-					})
-			})
+
+	// GAME LOOPS //
+	const gameLoop = async () => {
+		console.log('enter gameLoop')
+		const newGameData = await startNewGame()
+		console.log('new game data', newGameData._id, newGameData)
+		const passed = await passLoop(newGameData._id);
+		console.log(`  pass cycle ${passed ? 'complete' : 'incomplete'}`)
 	}
-	const postGameState = () => {
+	
+	const passLoop = async (id) => {
+		setGamePhase('pass')
+		let gameState = await aiSelectCardsToPass(id)
+		const passIndex = gameState.turn % 4;
+		if(passIndex === 3) return
+		else if(passIndex === 0){
+			// alert('pass left')
+		}else if(passIndex === 1){
+			alert('pass right')
+		}else{
+			alert('pass across')
+		}
+		let ready = passesReady(gameState)
+		let counter = 0;
+		console.log('start loop next')
+		while(!ready && counter < 100){
+			await loopDelay(500)
+			gameState = await getGameState(id)
+			ready = passesReady(gameState)
+			console.log(counter)
+			counter ++
+		}
+		console.log("out of loop")
+		return true
+		
+		
+	}
+
+	
+	// Gameplay Functions
+	const passSelectedCards = () => {
+	}
+	const handleSelectCard = (card) => {
+		setPassCards([card, ...passCards])
+	}
+
+
+	
+	const aiSelectCardsToPass = async (id) => {
+		console.log("fetching gameState", id);
+		const resp = await fetch(`${dbUrl}/gameState/passAi/${id}`)
+		const data = await resp.json()
+		console.log("fetched gameStateData", data);
+		spreadGameState(data.data)
+		return data.data
+	};
+	
+	
+
+	
+	// UTILITY FUNCTIONS
+	
+	const passesReady = (gameState) => {
+		let readyCount = 0
+		gameState.players.forEach((player)=>{
+			if(player.passes.length === 3) readyCount++
+		})
+		return readyCount === 3
+	}
+	
+	const loopDelay = (ms) => {
+		return new Promise(resolve=>{
+			setTimeout(()=>{ resolve('')}, ms)
+		})
+	}
+
+
+	const handLoop =  () => {
+		console.log("play the hand")
+	}
+	
+
+	///////////////////////////////////////////////////////
+	//	Start New Game - 
+	//		Calls Seed function
+	//		Calls Deal function
+	//		Spreads new game state to local state variables
+	///////////////////////////////////////////////////////
+	const startNewGame = async () => {
+		console.log("  starting new Game")
+		let resp = await fetch(`${dbUrl}/gameState/seed`)
+		let data = await resp.json()
+		const id   = data.data._id
+		resp = await fetch(`${dbUrl}/gameState/deal/${id}`)
+		data = await resp.json()
+		const newGameData = data.data
+		spreadGameState(newGameData)
+		console.log('  newly dealt game data', newGameData)
+		return newGameData
+		
+	}
+	
+	
+	
+	
+	// 			console.log("newGameData", data);
+	// 			const id = data.data._id;
+	// 			console.log('new game id', id)
+	// 			// spreadGameState(data.data)
+	// 			return id
+	// 		})
+	// 		.then((id) => {
+		// 			fetch(`${dbUrl}/gameState/deal/${id}`)
+	// 				.then(res => res.json())
+	// 				.then(data => {
+		// 					console.log("new deal data", data)
+	// 					spreadGameState(data.data)
+	// 					return data.data
+	// 				})
+	
+	// 		}).then(data=>{
+	// 			console.log('new data to return from startNewGame', data)
+	// 			return data
+	// 		})
+	// 		return data
+	// }
+	
+	
+	
+	// const startNewGame = async () => {
+		// 	console.log("starting new Game")
+	// 	const data = fetch(`${dbUrl}/gameState/seed`)
+	// 		.then((res) => res.json())
+	// 		.then((data)=> {
+	// 			console.log("newGameData", data);
+	// 			const id = data.data._id;
+	// 			console.log('new game id', id)
+	// 			// spreadGameState(data.data)
+	// 			return id
+	// 		})
+	// 		.then((id) => {
+		// 			fetch(`${dbUrl}/gameState/deal/${id}`)
+	// 				.then(res => res.json())
+	// 				.then(data => {
+	// 					console.log("new deal data", data)
+	// 					spreadGameState(data.data)
+	// 					return data.data
+	// 				})
+	
+	// 		}).then(data=>{
+		// 			console.log('new data to return from startNewGame', data)
+	// 			return data
+	// 		})
+	// 		return data
+	// }
+
+	//////////////////////////////////////////////////////////
+	//	Put Game State
+	//		collects local game state and PUTs to db gameState
+	//		- called after each turn or any other alteration
+	//		  of game state to be communicated to other players	
+	//////////////////////////////////////////////////////////
+	const putGameState = () => {
 		console.log("posting gameState");
 	};
-
-	useEffect(() => {
-		startNewGame()
-		// deal hand
-		// getGameState()
+	
+	// JSX Arrays
+	const handDisplay0 = hand0.map((card, i) => {
+		return <CardFront 
+			key={i} 
+			cardValue={card} 
+			handleSelectCard={handleSelectCard}
+		/>;
+	});
+	const handDisplay1 = hand1.map((card, i) => {
+		return <CardBack key={i} />;
+	});
+	const handDisplay2 = hand2.map((card, i) => {
+		return <CardBack key={i} />;
+	});
+	const handDisplay3 = hand3.map((card, i) => {
+		return <CardBack key={i} />;
+	});
+	useEffect( () => {
+		// const gameStartStatus =  startNewGame()
+		// console.log('start status', gameStartStatus)
+		// while(!gameStartStatus){
+			// 	setTimeout(()=>console.log('pause',gameStartStatus), 1000)
+			// }
+		gameLoop()
 	}, []);
-
+	
 	return (
 		<main className="game-main">
 			<section className="play-area"></section>
 			<aside className="north info-area"></aside>
 			<aside className="east info-area"></aside>
-			<aside className="south info-area"></aside>
+			<aside className="south info-area">
+				<button>Pass</button>
+				<button>Play Card</button>
+			</aside>
 			<aside className="west info-area"></aside>
 			<section className="north hand-area">
 				<HandDisplay>{handDisplay2}</HandDisplay>
