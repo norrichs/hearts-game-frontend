@@ -34,7 +34,13 @@
   grid-template-rows: 1fr 5fr 1fr;
 }
 .card-container .value{
-  padding: 5px;
+  padding: 5px 0px 0px 5px;
+  align-items: flex-end;
+  overflow: visible;
+}
+.card-container .value div:last-of-type{
+  font-size: .75em;
+
 }
 .card-container .value:last-of-type{
   transform: rotateZ(180deg);
@@ -73,6 +79,14 @@
     " s8 s6 b2 b2 .  " 
     " .  .  b2 b2 .  ";
     
+}
+.symbol-display.nominal{
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: " b1 ";
+  justify-content: center;
+  align-items: center;
 }
 
 .symbol{
@@ -156,5 +170,12 @@
 .north .hand-display{ transform: rotateZ(180deg);}
 .east  .hand-display{ transform: rotateZ(-90deg);}
 .west  .hand-display{ transform: rotateZ( 90deg);}
+
+.hidden{
+  visibility: hidden;
+}
+.shown{
+  visibility: visible;
+}
 
 

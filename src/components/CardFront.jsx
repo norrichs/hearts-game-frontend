@@ -1,7 +1,7 @@
 import React from 'react'
 
 
-const CardFront = ({cardValue}) => {
+const CardFront = ({cardValue, handleSelectCard}) => {
 	const valueText = ['2','3','4','5','6','7','8','9','10','J','Q','K','A']
 	const suits = {
 		c: String.fromCharCode(0x2663),
@@ -24,6 +24,7 @@ const CardFront = ({cardValue}) => {
 
 	const handleClickCard = (card) => {
 		setIsSelected( isSelected ? false : true)
+		handleSelectCard(card)
 		console.log(card)
 	}
 
@@ -39,9 +40,9 @@ const CardFront = ({cardValue}) => {
 			onClick={()=>{handleClickCard(cardValue)}}
 		>
 			
-			<div className='value'>{value}</div>
+			<div className='value'><div>{value}</div><div>{suits[suit]}</div></div>
 			<div className='symbol-wrapper'>
-				<div className='symbol-display numeric'>
+				<div className={`symbol-display ${value < 11 ? 'numeric' : 'nominal'}`}>
 					<div className='symbol sym-b1'>{symbols[0]}</div>
 					<div className='symbol sym-b2'>{symbols[1]}</div>
 					<div className='symbol sym-s1'>{symbols[2]}</div>
@@ -54,7 +55,7 @@ const CardFront = ({cardValue}) => {
 					<div className='symbol sym-s8'>{symbols[9]}</div>
 				</div>
 			</div>
-			<div className='value'>{value}</div>
+			<div className='value'><div>{value}</div><div>{suits[suit]}</div></div>
 			
 
 

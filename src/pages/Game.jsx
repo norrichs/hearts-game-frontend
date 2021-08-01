@@ -14,6 +14,9 @@ const Game = ({ dbUrl}, props) => {
 
 	const [passCardsCount, setPassCardsCount] = useState(0);
 	const [passCards, setPassCards] = useState([])
+	const [passReady, setPassReady] = useState(false)
+
+	const [playReady, setPlayReady] = useState(false)
 
 	const [playerState0, setPlayerState0] = useState([]);
 	const [playerState1, setPlayerState1] = useState([]);
@@ -30,6 +33,7 @@ const Game = ({ dbUrl}, props) => {
 	// 		Unpacks game state data into local state varibles
 	//////////////////////////////////////////////////////////
 	const spreadGameState = (gameStateData) => {
+		console.log('spreading to useState', gameStateData)
 		const { players, ...rest } = gameStateData;
 		setGlobalGameState(rest);
 		setHand0([...players[0].hand]);
@@ -43,26 +47,38 @@ const Game = ({ dbUrl}, props) => {
 	}
 	
 	const getGameState = async (id) => {
-		console.log("fetching gameState", id);
+		// console.log("fetching gameState", id);
 		const resp = await fetch(`${dbUrl}/gameState/getState/${id}`)
 		const data = await resp.json()
-		console.log("fetched gameStateData", data);
-		spreadGameState(data.data)
+		// console.log("fetched gameStateData", data);
 		return data.data
 	};
 
 	// GAME LOOPS //
 	const gameLoop = async () => {
 		console.log('enter gameLoop')
-		const newGameData = await startNewGame()
-		console.log('new game data', newGameData._id, newGameData)
-		const passed = await passLoop(newGameData._id);
-		console.log(`  pass cycle ${passed ? 'complete' : 'incomplete'}`)
+		let currentGameState = await startNewGame()
+		setGameId(currentGameState._id)
+		console.log('new game data', currentGameState._id, currentGameState)
+		let maxScore = 0;
+		let winScore = currentGameState.winScore
+		while(maxScore < winScore){
+			console.log('start new hand, current maxScore:', maxScore)
+			currentGameState = await handLoop(currentGameState._id)
+			maxScore = currentGameState.maxScore
+		}
 	}
-	
+
+	const handLoop = async (id) =>{
+		const passed = await passLoop(id);
+		console.log(`  pass cycle ${passed ? 'complete' : 'incomplete'}`)
+		return await getGameState(id)
+	}
+
 	const passLoop = async (id) => {
 		setGamePhase('pass')
 		let gameState = await aiSelectCardsToPass(id)
+		//TODO move to backend
 		const passIndex = gameState.turn % 4;
 		if(passIndex === 3) return
 		else if(passIndex === 0){
@@ -74,32 +90,53 @@ const Game = ({ dbUrl}, props) => {
 		}
 		let ready = passesReady(gameState)
 		let counter = 0;
-		console.log('start loop next')
 		while(!ready && counter < 100){
 			await loopDelay(500)
 			gameState = await getGameState(id)
+			// TODO spread gamestate, make components to display info
+			// spreadGameState(gameState)
 			ready = passesReady(gameState)
-			console.log(counter)
+			// console.log(counter)
 			counter ++
 		}
 		console.log("out of loop")
 		return true
-		
-		
 	}
 
-	
 	// Gameplay Functions
-	const passSelectedCards = () => {
-	}
+
 	const handleSelectCard = (card) => {
-		setPassCards([card, ...passCards])
+		if(passCards.includes(card)){
+			if(passReady) setPassReady(false)
+			passCards.splice(passCards.indexOf(card), 1)
+			setPassCards([...passCards])
+		}else{
+			if(passCards.length === 3){
+				setPassCards([passCards[1], passCards[2], card ])
+			}else{
+				if(passCards.length === 2) setPassReady(true)
+				setPassCards([...passCards, card])
+			} 
+		}
+	}
+	const handlePass = async () => {
+		let gameState = await getGameState(gameId)
+		console.log('passcards, gamestate', passCards, gameState)
+		passCards.forEach((card)=>{
+			const i = gameState.players[0].hand.indexOf(card)
+			gameState.players[0].hand.splice(i,1)
+		})
+		gameState.players[0].passes = [...passCards]
+		console.log('put game state', gameId)
+		gameState = await putGameStatePassCards(gameState, gameId)
+		console.log('post-pass game state', gameState)
+		spreadGameState(gameState)
+		setPassCards([])
+
 	}
 
-
-	
 	const aiSelectCardsToPass = async (id) => {
-		console.log("fetching gameState", id);
+		// console.log("fetching gameState", id);
 		const resp = await fetch(`${dbUrl}/gameState/passAi/${id}`)
 		const data = await resp.json()
 		console.log("fetched gameStateData", data);
@@ -107,17 +144,14 @@ const Game = ({ dbUrl}, props) => {
 		return data.data
 	};
 	
-	
-
-	
 	// UTILITY FUNCTIONS
-	
+	// TODO transition this functionality into a function in backend that checks each time a set of passes are submitted
 	const passesReady = (gameState) => {
 		let readyCount = 0
 		gameState.players.forEach((player)=>{
 			if(player.passes.length === 3) readyCount++
 		})
-		return readyCount === 3
+		return readyCount === 4
 	}
 	
 	const loopDelay = (ms) => {
@@ -125,12 +159,6 @@ const Game = ({ dbUrl}, props) => {
 			setTimeout(()=>{ resolve('')}, ms)
 		})
 	}
-
-
-	const handLoop =  () => {
-		console.log("play the hand")
-	}
-	
 
 	///////////////////////////////////////////////////////
 	//	Start New Game - 
@@ -152,69 +180,39 @@ const Game = ({ dbUrl}, props) => {
 		
 	}
 	
-	
-	
-	
-	// 			console.log("newGameData", data);
-	// 			const id = data.data._id;
-	// 			console.log('new game id', id)
-	// 			// spreadGameState(data.data)
-	// 			return id
-	// 		})
-	// 		.then((id) => {
-		// 			fetch(`${dbUrl}/gameState/deal/${id}`)
-	// 				.then(res => res.json())
-	// 				.then(data => {
-		// 					console.log("new deal data", data)
-	// 					spreadGameState(data.data)
-	// 					return data.data
-	// 				})
-	
-	// 		}).then(data=>{
-	// 			console.log('new data to return from startNewGame', data)
-	// 			return data
-	// 		})
-	// 		return data
-	// }
-	
-	
-	
-	// const startNewGame = async () => {
-		// 	console.log("starting new Game")
-	// 	const data = fetch(`${dbUrl}/gameState/seed`)
-	// 		.then((res) => res.json())
-	// 		.then((data)=> {
-	// 			console.log("newGameData", data);
-	// 			const id = data.data._id;
-	// 			console.log('new game id', id)
-	// 			// spreadGameState(data.data)
-	// 			return id
-	// 		})
-	// 		.then((id) => {
-		// 			fetch(`${dbUrl}/gameState/deal/${id}`)
-	// 				.then(res => res.json())
-	// 				.then(data => {
-	// 					console.log("new deal data", data)
-	// 					spreadGameState(data.data)
-	// 					return data.data
-	// 				})
-	
-	// 		}).then(data=>{
-		// 			console.log('new data to return from startNewGame', data)
-	// 			return data
-	// 		})
-	// 		return data
-	// }
-
 	//////////////////////////////////////////////////////////
 	//	Put Game State
 	//		collects local game state and PUTs to db gameState
 	//		- called after each turn or any other alteration
 	//		  of game state to be communicated to other players	
 	//////////////////////////////////////////////////////////
-	const putGameState = () => {
-		console.log("posting gameState");
+	const putGameState = async (gameState, id) => {
+		console.log("putting gameState");
+		const resp = await fetch(`${dbUrl}/gameState/putState/${id}`,{
+			method: "PUT",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(gameState)
+		})
+		console.log('PUT gameState response', resp)
 	};
+
+	const putGameStatePassCards = async (gameState, id) => {
+		console.log("putting gameState");
+		const resp = await fetch(`${dbUrl}/gameState/passCards/${id}`,{
+			method: "PUT",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(gameState)
+		})
+		const data = await resp.json()
+		console.log('passCard new gameState', data.data)
+		return data.data
+	};
+
+
 	
 	// JSX Arrays
 	const handDisplay0 = hand0.map((card, i) => {
@@ -233,12 +231,8 @@ const Game = ({ dbUrl}, props) => {
 	const handDisplay3 = hand3.map((card, i) => {
 		return <CardBack key={i} />;
 	});
+
 	useEffect( () => {
-		// const gameStartStatus =  startNewGame()
-		// console.log('start status', gameStartStatus)
-		// while(!gameStartStatus){
-			// 	setTimeout(()=>console.log('pause',gameStartStatus), 1000)
-			// }
 		gameLoop()
 	}, []);
 	
@@ -248,8 +242,8 @@ const Game = ({ dbUrl}, props) => {
 			<aside className="north info-area"></aside>
 			<aside className="east info-area"></aside>
 			<aside className="south info-area">
-				<button>Pass</button>
-				<button>Play Card</button>
+				<button className={passReady ? 'shown' : 'hidden'} onClick={handlePass}>Pass</button>
+				<button className={playReady ? 'shown' : 'hidden'}>Play Card</button>
 			</aside>
 			<aside className="west info-area"></aside>
 			<section className="north hand-area">
