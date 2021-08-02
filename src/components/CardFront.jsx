@@ -22,11 +22,7 @@ const CardFront = ({cardValue, handleSelectCard}) => {
 
 	}
 
-	const handleClickCard = (card) => {
-		setIsSelected( isSelected ? false : true)
-		handleSelectCard(card)
-		console.log(card)
-	}
+
 
 
 	React.useEffect(()=>{
@@ -36,8 +32,8 @@ const CardFront = ({cardValue, handleSelectCard}) => {
 
 	return(
 		<div 
-			className={`card-container card-front suit-${suit} ${isSelected?'selected':'unselected'}`}
-			onClick={()=>{handleClickCard(cardValue)}}
+			className={`card-front suit-${suit}`}
+			onClick={()=>{handleSelectCard(cardValue)}}
 		>
 			
 			<div className='value'><div>{value}</div><div>{suits[suit]}</div></div>

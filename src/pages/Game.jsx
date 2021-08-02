@@ -3,10 +3,12 @@ import CardBack from "../components/CardBack";
 import CardFront from "../components/CardFront";
 import HandDisplay from "../components/HandDisplay";
 
-const Game = ({ dbUrl}, props) => {
+const Game = ({ dbUrl, userPlayer}, props) => {
+	// console.log('userPlayer number', userPlayer)
 	const [gameId, setGameId] = useState(null)
 	const [globalGameState, setGlobalGameState] = useState({});
-	const [hand0, setHand0] = useState([]);
+	const [userHand, setUserHand] = useState([]);
+	const [userSelections, setUserSelections] = useState([])
 	// TODO eliminate frontend HAND data for all but 0
 	const [hand1, setHand1] = useState([]);
 	const [hand2, setHand2] = useState([]);
@@ -36,7 +38,7 @@ const Game = ({ dbUrl}, props) => {
 		console.log('spreading to useState', gameStateData)
 		const { players, ...rest } = gameStateData;
 		setGlobalGameState(rest);
-		setHand0([...players[0].hand]);
+		setUserHand([...players[userPlayer].hand]);
 		setHand1([...players[1].hand]);
 		setHand2([...players[2].hand]);
 		setHand3([...players[3].hand]);
@@ -70,15 +72,49 @@ const Game = ({ dbUrl}, props) => {
 	}
 
 	const handLoop = async (id) =>{
-		const passed = await passLoop(id);
-		console.log(`  pass cycle ${passed ? 'complete' : 'incomplete'}`)
+		// alert('start hand loop', gamePhase)
+		// One pass loop per hand
+		// local state, set phase to 'pass'.  Pass phase set in backend by 'deal' function
+		setGamePhase('pass')
+		// Init selections array
+		const blankSelections = new Array(13)
+		blankSelections.fill(false)
+		console.log('blank',blankSelections)
+		setUserSelections([...blankSelections])
+
+		let gameState = await passLoop(id);
+		setUserSelections([...gameState.players[userPlayer].hand].fill(false))
+		spreadGameState(gameState)
+		// Set all cards in hand to unselected, and set new passed to selected
+		
+		
+		// Enter Trick taking phase
+		setGamePhase('tricks')
+		let trickCount = 1;
+		while ( trickCount <= 13 ){
+			await loopDelay(3000)
+			console.log(`    trick ${trickCount} begin`)
+			trickCount = await trickLoop(id, trickCount)
+		}
 		return await getGameState(id)
 	}
-
+	//////////////////////////////
+	// passLoop
+	//		handles waiting for passable cards to be selected
+	//		loops infinitely waiting for all palyers to make selections
+	//		(including user)
+	//		passing of cards is handled by the backend.  Each submission of selected
+	// 		cards by human or computer triggers a check for all-selected, and subsequent pass
+	///////////////////////////////
 	const passLoop = async (id) => {
-		setGamePhase('pass')
-		let gameState = await aiSelectCardsToPass(id)
-		//TODO move to backend
+
+		
+		// Update local state
+		let gameState = await getGameState(id)
+		spreadGameState(gameState)
+
+		// calculate pass alignment for display
+		// same calculation happens in backend when pass is executed
 		const passIndex = gameState.turn % 4;
 		if(passIndex === 3) return
 		else if(passIndex === 0){
@@ -88,37 +124,117 @@ const Game = ({ dbUrl}, props) => {
 		}else{
 			alert('pass across')
 		}
+
 		let ready = passesReady(gameState)
 		let counter = 0;
+		
+		// TODO remove counter-limit for production
 		while(!ready && counter < 100){
 			await loopDelay(500)
+			// poll DB game state, looking for all players ready
+			console.log('passloop update localstate')
 			gameState = await getGameState(id)
-			// TODO spread gamestate, make components to display info
-			// spreadGameState(gameState)
-			ready = passesReady(gameState)
+			ready = passesReady(gameState) || gameState.phase !== 'pass'
 			// console.log(counter)
 			counter ++
 		}
-		console.log("out of loop")
-		return true
+		// alert("pass loop complete")
+		
+		return gameState
+	}
+
+	/////////////////////////////////////	
+	// Trick Loop function
+	// 		after cards have been passed
+	//			if user's turn
+	//				loop with long delay (or escape loop cycles)
+	//				when user selects a card and clicks Play button, escape from loop
+	//			else
+	//				poll server gameState with delay
+	//				show current player turn status
+
+	const trickLoop = async (id, trickCount) => {
+		console.log('start trick loop for trick', trickCount, 'game',id)
+		let waiting = true
+		let inProgress = true
+		
+		while(inProgress){
+			let gameState = await getGameState(id)
+			console.log('    trick loop',gameState.players[userPlayer].hand)
+			if(gameState.activePlayer === userPlayer){
+				// alert('your turn')
+				console.log("user's turn (pre)")
+				await loopDelay(3000)
+				console.log("user's turn (post)")
+			}else{
+				while(waiting){
+					// console.log("other's turn")
+					await loopDelay(3000)
+					gameState = await getGameState(id)
+					console.log('    trickLoop other player', gameState.players[1].hand)
+					spreadGameState(gameState)
+				}
+			}
+		}		
+		return trickCount += 1;
+
+
 	}
 
 	// Gameplay Functions
 
 	const handleSelectCard = (card) => {
-		if(passCards.includes(card)){
-			if(passReady) setPassReady(false)
-			passCards.splice(passCards.indexOf(card), 1)
-			setPassCards([...passCards])
-		}else{
-			if(passCards.length === 3){
-				setPassCards([passCards[1], passCards[2], card ])
+		const selArr = [...userSelections]
+		const i = userHand.indexOf(card)
+
+		if(gamePhase === 'pass'){
+			selArr[i] = selArr[i] ? false : true
+			setUserSelections([...selArr])
+			// max selected = 3, extras replace
+			if(passCards.includes(card)){
+				// alert('gamephase = pass ' + card + ' passready', passReady)
+
+
+				if(passReady) setPassReady(false)
+				passCards.splice(passCards.indexOf(card), 1)
+				setPassCards([...passCards])
 			}else{
-				if(passCards.length === 2) setPassReady(true)
-				setPassCards([...passCards, card])
-			} 
+				if(passCards.length === 3){
+					setPassCards([passCards[1], passCards[2], card ])
+				}else{
+					if(passCards.length === 2) setPassReady(true)
+					setPassCards([...passCards, card])
+				} 
+			}
+		}else if(gamePhase === 'tricks'){
+			// max selected = 1, extras replace
+			if(passCards.length === 0){
+				console.log('first selection')
+				selArr[i] = true
+				setPlayReady(true)
+				setPassCards([card])
+				setUserSelections([...selArr])
+			}else{
+				if(passCards[0] === card){
+					console.log('selected second.  remove first')
+					selArr[i] = false
+					setUserSelections([...selArr])
+					setPassCards([])
+				}else{
+					console.log('deselecting')
+					const j = userHand.indexOf(passCards[0])
+					selArr[i] = true
+					selArr[j] = false
+					setUserSelections([...selArr])
+					setPassCards([card])
+				}
+			}
 		}
+
 	}
+
+
+
 	const handlePass = async () => {
 		let gameState = await getGameState(gameId)
 		console.log('passcards, gamestate', passCards, gameState)
@@ -135,14 +251,10 @@ const Game = ({ dbUrl}, props) => {
 
 	}
 
-	const aiSelectCardsToPass = async (id) => {
-		// console.log("fetching gameState", id);
-		const resp = await fetch(`${dbUrl}/gameState/passAi/${id}`)
-		const data = await resp.json()
-		console.log("fetched gameStateData", data);
-		spreadGameState(data.data)
-		return data.data
-	};
+	const handlePlay = async () => {
+		alert('play '+ passCards[0])
+	}
+
 	
 	// UTILITY FUNCTIONS
 	// TODO transition this functionality into a function in backend that checks each time a set of passes are submitted
@@ -151,6 +263,7 @@ const Game = ({ dbUrl}, props) => {
 		gameState.players.forEach((player)=>{
 			if(player.passes.length === 3) readyCount++
 		})
+		// Return true if all players have selected cards to pass
 		return readyCount === 4
 	}
 	
@@ -215,12 +328,16 @@ const Game = ({ dbUrl}, props) => {
 
 	
 	// JSX Arrays
-	const handDisplay0 = hand0.map((card, i) => {
-		return <CardFront 
-			key={i} 
-			cardValue={card} 
-			handleSelectCard={handleSelectCard}
-		/>;
+	const userHandDisplay = userHand.map((card, i) => {
+		return (
+			<div key={i} className={`card-container ${userSelections[i] ? 'selected' : 'unselected'}`}>
+				<CardFront 
+					
+					cardValue={card} 
+					handleSelectCard={handleSelectCard}
+				/>
+			</div>
+		) 
 	});
 	const handDisplay1 = hand1.map((card, i) => {
 		return <CardBack key={i} />;
@@ -243,7 +360,7 @@ const Game = ({ dbUrl}, props) => {
 			<aside className="east info-area"></aside>
 			<aside className="south info-area">
 				<button className={passReady ? 'shown' : 'hidden'} onClick={handlePass}>Pass</button>
-				<button className={playReady ? 'shown' : 'hidden'}>Play Card</button>
+				<button className={playReady ? 'shown' : 'hidden'} onClick={handlePlay}>Play Card</button>
 			</aside>
 			<aside className="west info-area"></aside>
 			<section className="north hand-area">
@@ -253,7 +370,7 @@ const Game = ({ dbUrl}, props) => {
 				<HandDisplay>{handDisplay3}</HandDisplay>
 			</section>
 			<section className="south hand-area">
-				<HandDisplay>{handDisplay0}</HandDisplay>
+				<HandDisplay>{userHandDisplay}</HandDisplay>
 			</section>
 			<section className="west hand-area">
 				<HandDisplay>{handDisplay1}</HandDisplay>
